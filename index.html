@@ -149,17 +149,6 @@
             reader.readAsArrayBuffer(file);
         });
 
-        // Function to play the audio
-        function playAudio() {
-            if (audioContext && audioBuffer && !isPlaying) {
-                audioSourceNode = audioContext.createBufferSource();
-                audioSourceNode.buffer = audioBuffer;
-                audioSourceNode.connect(audioContext.destination);
-                audioSourceNode.start();
-                isPlaying = true;
-            }
-        }
-
         // Function to stop the audio
         function stopAudio() {
             if (audioSourceNode) {
@@ -246,16 +235,70 @@
 
         // Function to download the edited audio file as MP3 or WAV
         async function downloadAudio() {
-            if (!audioSourceNode) {
-                alert("No audio loaded to download!");
-                return;
-            }
-
-            const blob = new Blob([audioBuffer], { type: 'audio/wav' }); // or use MP3 depending on your desired format
+            const buffer = audioBuffer;
+            const wavData = await encodeWav(buffer); // Encoding audio to WAV
+            const blob = new Blob([wavData], { type: 'audio/wav' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.download = 'edited_audio.wav'; // change extension to .mp3 if you prefer MP3
+            link.download = 'edited-audio.wav';
             link.click();
+        }
+
+        // Function to encode audio buffer to WAV format
+        function encodeWav(buffer) {
+            const sampleRate = buffer.sampleRate;
+            const numChannels = buffer.numberOfChannels;
+            const numFrames = buffer.length;
+            const wav = new ArrayBuffer(44 + numFrames * numChannels * 2);
+            const view = new DataView(wav);
+            let offset = 0;
+
+            // Write WAV header
+            writeString(view, offset, 'RIFF');
+            offset += 4;
+            view.setUint32(offset, 36 + numFrames * numChannels * 2, true);
+            offset += 4;
+            writeString(view, offset, 'WAVE');
+            offset += 4;
+            writeString(view, offset, 'fmt ');
+            offset += 4;
+            view.setUint32(offset, 16, true);
+            offset += 4;
+            view.setUint16(offset, 1, true); // PCM format
+            offset += 2;
+            view.setUint16(offset, numChannels, true);
+            offset += 2;
+            view.setUint32(offset, sampleRate, true);
+            offset += 4;
+            view.setUint32(offset, sampleRate * numChannels * 2, true); // Byte rate
+            offset += 4;
+            view.setUint16(offset, numChannels * 2, true); // Block align
+            offset += 2;
+            view.setUint16(offset, 16, true); // Bits per sample
+            offset += 2;
+            writeString(view, offset, 'data');
+            offset += 4;
+            view.setUint32(offset, numFrames * numChannels * 2, true);
+            offset += 4;
+
+            // Write audio samples
+            for (let channel = 0; channel < numChannels; channel++) {
+                const channelData = buffer.getChannelData(channel);
+                for (let i = 0; i < numFrames; i++) {
+                    const sample = channelData[i] * 32767;
+                    view.setInt16(offset, sample, true);
+                    offset += 2;
+                }
+            }
+
+            return wav;
+        }
+
+        // Function to write a string at a specified offset
+        function writeString(view, offset, str) {
+            for (let i = 0; i < str.length; i++) {
+                view.setUint8(offset + i, str.charCodeAt(i));
+            }
         }
     </script>
 </body>
