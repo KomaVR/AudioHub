@@ -98,6 +98,12 @@
             <button onclick="applyOutsideEffect()">Outside Headphones</button>
             <button onclick="applyBassBoost()">Bass Boost</button>
             <button onclick="applyEcho()">Echo</button>
+            <button onclick="apply3DAudio()">3D Audio</button>
+            <button onclick="applyRoomSimulation()">Room Simulation</button>
+            <button onclick="applyConcertHall()">Concert Hall</button>
+            <button onclick="applyForestAmbience()">Forest Ambience</button>
+            <button onclick="applyCloseWhisper()">Close Whisper</button>
+            <button onclick="applyUnderwater()">Underwater</button>
         </div>
         <audio id="audioPlayer" controls></audio>
         <button onclick="downloadAudio()">Download Edited MP3</button>
@@ -136,95 +142,71 @@
                 alert('Please upload and play an audio file first!');
                 return;
             }
-            // Stop existing playback if necessary
             if (sourceNode) sourceNode.stop();
-
-            // Create a new source node
             sourceNode = audioContext.createBufferSource();
             sourceNode.buffer = audioBuffer;
-
-            // Connect source node to effect and then to destination
-            effectsChain = effectNode;
-            sourceNode.connect(effectsChain).connect(audioContext.destination);
-
-            // Play the audio
-            sourceNode.start(0);
+            sourceNode.connect(effectNode).connect(audioContext.destination);
+            sourceNode.start();
         }
 
         function applyReverb() {
-            const reverb = new Tone.Reverb({ decay: 2, wet: 0.5 }).toDestination();
+            const reverb = new Tone.Reverb({ decay: 4, wet: 0.6 }).toDestination();
             connectEffect(reverb);
         }
 
         function apply12D() {
             const panner = new Tone.Panner(0).toDestination();
             connectEffect(panner);
-
             let angle = 0;
             setInterval(() => {
-                angle += 0.05;
+                angle += 0.03;
                 panner.pan.value = Math.sin(angle);
             }, 50);
         }
 
         function applyOutsideEffect() {
-            const delay = new Tone.FeedbackDelay(0.2, 0.4).toDestination();
+            const delay = new Tone.FeedbackDelay("16n", 0.4).toDestination();
             connectEffect(delay);
         }
 
         function applyBassBoost() {
-            const bassBoost = new Tone.EQ3({ low: 10, mid: -2, high: -5 }).toDestination();
-            connectEffect(bassBoost);
+            const eq = new Tone.EQ3({ low: 15 }).toDestination();
+            connectEffect(eq);
         }
 
         function applyEcho() {
-            const echo = new Tone.PingPongDelay({ delayTime: 0.25, feedback: 0.5 }).toDestination();
+            const echo = new Tone.PingPongDelay("8n", 0.3).toDestination();
             connectEffect(echo);
         }
 
-        function downloadAudio() {
-            if (!audioBuffer) {
-                alert('No audio to download!');
-                return;
-            }
-            const wavBlob = bufferToWav(audioBuffer);
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(wavBlob);
-            link.download = 'edited_audio.wav';
-            link.click();
+        function apply3DAudio() {
+            const panner = new Tone.Listener();
+            connectEffect(panner);
         }
 
-        function bufferToWav(buffer) {
-            const numOfChan = buffer.numberOfChannels;
-            const length = buffer.length * numOfChan * 2 + 44;
-            const bufferData = new Uint8Array(length);
-            const view = new DataView(bufferData.buffer);
-
-            writeString(view, 0, 'RIFF');
-            view.setUint32(4, 36 + buffer.length * numOfChan * 2, true);
-            writeString(view, 8, 'WAVE');
-            writeString(view, 12, 'fmt ');
-            view.setUint32(16, 16, true);
-            view.setUint16(20, 1, true);
-            view.setUint16(22, numOfChan, true);
-            view.setUint32(24, buffer.sampleRate, true);
-            view.setUint32(28, buffer.sampleRate * 4, true);
-            view.setUint16(32, numOfChan * 2, true);
-            view.setUint16(34, 16, true);
-            writeString(view, 36, 'data');
-            view.setUint32(40, buffer.length * numOfChan * 2, true);
-
-            for (let i = 0, offset = 44; i < buffer.length; i++, offset += 2) {
-                const sample = Math.max(-1, Math.min(1, buffer.getChannelData(0)[i]));
-                view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
-            }
-            return new Blob([bufferData], { type: 'audio/wav' });
+        function applyRoomSimulation() {
+            const room = new Tone.Freeverb().toDestination();
+            connectEffect(room);
         }
 
-        function writeString(view, offset, string) {
-            for (let i = 0; i < string.length; i++) {
-                view.setUint8(offset + i, string.charCodeAt(i));
-            }
+        function applyConcertHall() {
+            const hall = new Tone.Freeverb({ roomSize: 0.95 }).toDestination();
+            connectEffect(hall);
+        }
+
+        function applyForestAmbience() {
+            const forest = new Tone.FeedbackDelay({ delayTime: "4n" });
+            connectEffect(forest);
+        }
+
+        function applyCloseWhisper() {
+            const whisper = new Tone.Panner(0).toDestination();
+            connectEffect(whisper);
+        }
+
+        function applyUnderwater() {
+            const underwater = new Tone.BitCrusher(4).toDestination();
+            connectEffect(underwater);
         }
     </script>
 </body>
