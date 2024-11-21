@@ -7,7 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/tone"></script>
     <style>
         body {
-            font-family: 'Arial', sans-serif;
+            font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
             background: linear-gradient(135deg, #000428, #004e92);
@@ -98,12 +98,6 @@
             <button onclick="applyOutsideEffect()">Outside Headphones</button>
             <button onclick="applyBassBoost()">Bass Boost</button>
             <button onclick="applyEcho()">Echo</button>
-            <button onclick="apply3DAudio()">3D Audio</button>
-            <button onclick="applyRoomSimulation()">Room Simulation</button>
-            <button onclick="applyConcertHall()">Concert Hall</button>
-            <button onclick="applyForestAmbience()">Forest Ambience</button>
-            <button onclick="applyCloseWhisper()">Close Whisper</button>
-            <button onclick="applyUnderwater()">Underwater</button>
         </div>
         <audio id="audioPlayer" controls></audio>
         <button onclick="downloadAudio()">Download Edited MP3</button>
@@ -114,124 +108,100 @@
     </footer>
 
     <script>
-        let audioContext, source, audioBuffer, player;
+        let audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        let sourceNode, audioBuffer, effectsChain;
+
+        const fileInput = document.getElementById('fileInput');
         const audioPlayer = document.getElementById('audioPlayer');
 
-        document.getElementById('fileInput').addEventListener('change', async function (event) {
+        fileInput.addEventListener('change', async (event) => {
             const file = event.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = async function (e) {
-                const audioData = e.target.result;
-                audioContext = new AudioContext();
-                audioBuffer = await audioContext.decodeAudioData(audioData);
-                playAudio(audioBuffer);
-            };
-            reader.readAsArrayBuffer(file);
+            if (!file) {
+                alert('Please upload a valid MP3 file.');
+                return;
+            }
+            const arrayBuffer = await file.arrayBuffer();
+            audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+            playAudio(audioBuffer);
         });
 
-        async function playAudio(buffer) {
-            const arrayBuffer = await bufferToWav(buffer);
-            const blob = new Blob([arrayBuffer], { type: 'audio/wav' });
+        function playAudio(buffer) {
+            const blob = bufferToWav(buffer);
             const url = URL.createObjectURL(blob);
             audioPlayer.src = url;
         }
 
+        function connectEffect(effectNode) {
+            if (!audioBuffer) {
+                alert('Please upload and play an audio file first!');
+                return;
+            }
+            // Stop existing playback if necessary
+            if (sourceNode) sourceNode.stop();
+
+            // Create a new source node
+            sourceNode = audioContext.createBufferSource();
+            sourceNode.buffer = audioBuffer;
+
+            // Connect source node to effect and then to destination
+            effectsChain = effectNode;
+            sourceNode.connect(effectsChain).connect(audioContext.destination);
+
+            // Play the audio
+            sourceNode.start(0);
+        }
+
         function applyReverb() {
-            const reverb = new Tone.Reverb({ decay: 3 }).toDestination();
+            const reverb = new Tone.Reverb({ decay: 2, wet: 0.5 }).toDestination();
             connectEffect(reverb);
         }
 
         function apply12D() {
             const panner = new Tone.Panner(0).toDestination();
-            const loop = setInterval(() => {
-                panner.pan.value = Math.sin(Date.now() * 0.002);
-            }, 50);
             connectEffect(panner);
+
+            let angle = 0;
+            setInterval(() => {
+                angle += 0.05;
+                panner.pan.value = Math.sin(angle);
+            }, 50);
         }
 
         function applyOutsideEffect() {
-            const delay = new Tone.FeedbackDelay(0.4, 0.3).toDestination();
+            const delay = new Tone.FeedbackDelay(0.2, 0.4).toDestination();
             connectEffect(delay);
         }
 
         function applyBassBoost() {
-            const bassEQ = new Tone.EQ3({ low: 10, mid: 0, high: -5 }).toDestination();
-            connectEffect(bassEQ);
+            const bassBoost = new Tone.EQ3({ low: 10, mid: -2, high: -5 }).toDestination();
+            connectEffect(bassBoost);
         }
 
         function applyEcho() {
-            const echo = new Tone.FeedbackDelay(0.6, 0.4).toDestination();
+            const echo = new Tone.PingPongDelay({ delayTime: 0.25, feedback: 0.5 }).toDestination();
             connectEffect(echo);
         }
 
-        function apply3DAudio() {
-            const spatial = new Tone.Listener({ position: [0, 0, 0] });
-            connectEffect(spatial);
-        }
-
-        function applyRoomSimulation() {
-            const roomEffect = new Tone.Freeverb({ roomSize: 0.9 }).toDestination();
-            connectEffect(roomEffect);
-        }
-
-        function applyConcertHall() {
-            const hall = new Tone.JCReverb({ roomSize: 0.8 }).toDestination();
-            connectEffect(hall);
-        }
-
-        function applyForestAmbience() {
-            const ambience = new Tone.NoiseSynth({ type: 'brown' }).toDestination();
-            connectEffect(ambience);
-        }
-
-        function applyCloseWhisper() {
-            const whisperEffect = new Tone.PingPongDelay(0.05, 0.8).toDestination();
-            connectEffect(whisperEffect);
-        }
-
-        function applyUnderwater() {
-            const underwaterEffect = new Tone.AutoFilter({ frequency: 200 }).toDestination();
-            connectEffect(underwaterEffect);
-        }
-
-        function connectEffect(effect) {
-            if (audioContext && audioBuffer) {
-                const source = audioContext.createBufferSource();
-                source.buffer = audioBuffer;
-                source.connect(effect).connect(audioContext.destination);
-                source.start();
-            }
-        }
-
-        async function downloadAudio() {
+        function downloadAudio() {
             if (!audioBuffer) {
-                alert("No audio loaded to download!");
+                alert('No audio to download!');
                 return;
             }
-            const arrayBuffer = await bufferToWav(audioBuffer);
-            const blob = new Blob([arrayBuffer], { type: 'audio/wav' });
+            const wavBlob = bufferToWav(audioBuffer);
             const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
+            link.href = URL.createObjectURL(wavBlob);
             link.download = 'edited_audio.wav';
             link.click();
         }
 
-        async function bufferToWav(buffer) {
+        function bufferToWav(buffer) {
             const numOfChan = buffer.numberOfChannels;
             const length = buffer.length * numOfChan * 2 + 44;
             const bufferData = new Uint8Array(length);
             const view = new DataView(bufferData.buffer);
 
-            const writeString = (view, offset, string) => {
-                for (let i = 0; i < string.length; i++) {
-                    view.setUint8(offset + i, string.charCodeAt(i));
-                }
-            };
-
             writeString(view, 0, 'RIFF');
-            view.setUint32(4, 32 + buffer.length * 2, true);
+            view.setUint32(4, 36 + buffer.length * numOfChan * 2, true);
             writeString(view, 8, 'WAVE');
             writeString(view, 12, 'fmt ');
             view.setUint32(16, 16, true);
@@ -240,10 +210,21 @@
             view.setUint32(24, buffer.sampleRate, true);
             view.setUint32(28, buffer.sampleRate * 4, true);
             view.setUint16(32, numOfChan * 2, true);
+            view.setUint16(34, 16, true);
             writeString(view, 36, 'data');
             view.setUint32(40, buffer.length * numOfChan * 2, true);
 
-            return bufferData.buffer;
+            for (let i = 0, offset = 44; i < buffer.length; i++, offset += 2) {
+                const sample = Math.max(-1, Math.min(1, buffer.getChannelData(0)[i]));
+                view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+            }
+            return new Blob([bufferData], { type: 'audio/wav' });
+        }
+
+        function writeString(view, offset, string) {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
         }
     </script>
 </body>
