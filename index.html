@@ -107,6 +107,9 @@
         </div>
         <audio id="audioPlayer" controls></audio>
         <button onclick="downloadAudio()">Download Edited Audio</button>
+        <button onclick="stopAudio()">Stop Audio</button>
+        <button onclick="pauseAudio()">Pause Audio</button>
+        <button onclick="resumeAudio()">Resume Audio</button>
     </div>
 
     <footer>
@@ -116,6 +119,9 @@
     <script>
         let audioContext, source, audioBuffer, player, audioSourceNode;
         const audioPlayer = document.getElementById('audioPlayer');
+        let isPlaying = false;
+        let isPaused = false;
+        let audioData = null;
 
         // Function to load and decode the uploaded audio file
         document.getElementById('fileInput').addEventListener('change', async function (event) {
@@ -124,7 +130,7 @@
 
             const reader = new FileReader();
             reader.onload = async function (e) {
-                const audioData = e.target.result;
+                audioData = e.target.result;
                 audioContext = new AudioContext();
                 
                 // Decode the audio data from the uploaded file
@@ -132,13 +138,10 @@
                     audioBuffer = buffer;
                     audioSourceNode = audioContext.createBufferSource();
                     audioSourceNode.buffer = audioBuffer;
-
+                    
                     // Connect to destination (audio output)
                     audioSourceNode.connect(audioContext.destination);
-                    
-                    // Update the player
                     audioPlayer.src = URL.createObjectURL(file);
-                    audioSourceNode.start();
                 }, (error) => {
                     console.error('Error decoding audio:', error);
                 });
@@ -146,7 +149,43 @@
             reader.readAsArrayBuffer(file);
         });
 
-        // Apply effects
+        // Function to play the audio
+        function playAudio() {
+            if (audioContext && audioBuffer && !isPlaying) {
+                audioSourceNode = audioContext.createBufferSource();
+                audioSourceNode.buffer = audioBuffer;
+                audioSourceNode.connect(audioContext.destination);
+                audioSourceNode.start();
+                isPlaying = true;
+            }
+        }
+
+        // Function to stop the audio
+        function stopAudio() {
+            if (audioSourceNode) {
+                audioSourceNode.stop();
+                isPlaying = false;
+                audioSourceNode = null;
+            }
+        }
+
+        // Function to pause the audio
+        function pauseAudio() {
+            if (audioContext && isPlaying && !isPaused) {
+                audioContext.suspend();
+                isPaused = true;
+            }
+        }
+
+        // Function to resume the audio
+        function resumeAudio() {
+            if (audioContext && isPaused) {
+                audioContext.resume();
+                isPaused = false;
+            }
+        }
+
+        // Apply effects (reusing previous effect functions like Reverb, 12D, etc.)
         function applyReverb() {
             const reverb = new Tone.Reverb({ decay: 3 }).toDestination();
             audioSourceNode.connect(reverb);
