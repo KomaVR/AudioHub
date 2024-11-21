@@ -259,21 +259,22 @@
                         effectNode = new Tone.Oscillator(440, "sine").toDestination(); // Simulate whisper
                         break;
                     case 'underwater':
-                        effectNode = new Tone.Filter(400, "lowpass").toDestination();
-                        break;
-                    default:
+                        effectNode = new Tone.Distortion(0.5).toDestination();
                         break;
                 }
 
+                // Connect the audio source through the effect node
                 if (effectNode) {
-                    // Connect the audio source through the effect node
                     audioSourceNode.connect(effectNode);
-                    audioSourceNode.start();
+                    effectNode.connect(audioContext.destination);
                 }
+
+                audioSourceNode.start();
+                isPlaying = true;
             }
         }
 
-        // Function to download the edited audio file (using a Blob)
+        // Function to download the edited audio file
         function downloadAudio() {
             const audioBlob = new Blob([audioData], { type: 'audio/wav' });
             const downloadLink = document.createElement('a');
