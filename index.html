@@ -104,6 +104,7 @@
             <button onclick="applyForestAmbience()">Forest Ambience</button>
             <button onclick="applyCloseWhisper()">Close Whisper</button>
             <button onclick="applyUnderwater()">Underwater</button>
+            <button onclick="applyEffects()">Apply Effects</button>
         </div>
         <audio id="audioPlayer" controls></audio>
         <button onclick="downloadAudio()">Download Edited Audio</button>
@@ -233,10 +234,31 @@
             audioSourceNode.connect(underwaterEffect);
         }
 
-        // Function to download the edited audio file as MP3 or WAV
-        async function downloadAudio() {
+        // Apply selected effects to the audio
+        function applyEffects() {
+            // Reset the source node to avoid overlapping effects
+            if (audioSourceNode) {
+                audioSourceNode.disconnect();
+            }
+            
+            // Recreate the audio source and apply effects
+            audioSourceNode = audioContext.createBufferSource();
+            audioSourceNode.buffer = audioBuffer;
+            audioSourceNode.connect(audioContext.destination);
+            
+            // Example: Apply reverb effect as default
+            applyReverb();
+        }
+
+        // Download the edited audio
+        function downloadAudio() {
+            if (!audioBuffer) {
+                alert("Please upload an audio file first!");
+                return;
+            }
+
             const buffer = audioBuffer;
-            const wavData = await encodeWav(buffer); // Encoding audio to WAV
+            const wavData = encodeWav(buffer); // Encoding audio to WAV
             const blob = new Blob([wavData], { type: 'audio/wav' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
