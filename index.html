@@ -115,6 +115,8 @@
         let isPlaying = false;
         let currentEffect = null;
         let audioNodeChain = []; // To store all audio nodes for effects
+        let mediaRecorder;
+        let audioChunks = [];
 
         // Function to load and decode the uploaded audio file
         document.getElementById('fileInput').addEventListener('change', async function (event) {
@@ -136,6 +138,7 @@
 
                     // Set the audio element to play the file
                     audioElement.src = URL.createObjectURL(file);
+                    startRecording();
                 }, (error) => {
                     console.error('Error decoding audio:', error);
                 });
@@ -143,12 +146,34 @@
             reader.readAsArrayBuffer(file);
         });
 
+        // Function to start recording the audio
+        function startRecording() {
+            if (!audioContext) return;
+            const dest = audioContext.createMediaStreamDestination();
+            audioSourceNode.connect(dest);
+
+            mediaRecorder = new MediaRecorder(dest.stream);
+            mediaRecorder.ondataavailable = event => {
+                audioChunks.push(event.data);
+            };
+            mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                const audioURL = URL.createObjectURL(audioBlob);
+                audioElement.src = audioURL; // Set the playback to the recorded audio
+                audioChunks = []; // Reset audio chunks for future recordings
+            };
+            mediaRecorder.start();
+        }
+
         // Function to stop the audio
         function stopAudio() {
             if (audioSourceNode) {
                 audioSourceNode.stop();
                 isPlaying = false;
                 audioSourceNode = null;
+            }
+            if (mediaRecorder) {
+                mediaRecorder.stop();
             }
         }
 
@@ -234,7 +259,7 @@
 
         // Function to download the edited audio file
         function downloadAudio() {
-            const audioBlob = new Blob([audioData], { type: 'audio/wav' });
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
             const downloadLink = document.createElement('a');
             downloadLink.href = URL.createObjectURL(audioBlob);
             downloadLink.download = 'edited_audio.wav';
