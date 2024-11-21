@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Immersive Audio Editor</title>
-    <script src="https://cdn.jsdelivr.net/npm/tone"></script>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -94,16 +93,9 @@
         <input type="file" id="fileInput" accept="audio/*">
         <div class="controls">
             <button onclick="applyReverb()">Reverb</button>
-            <button onclick="apply12D()">12D Audio</button>
-            <button onclick="applyOutsideEffect()">Outside Headphones</button>
             <button onclick="applyBassBoost()">Bass Boost</button>
             <button onclick="applyEcho()">Echo</button>
             <button onclick="apply3DAudio()">3D Audio</button>
-            <button onclick="applyRoomSimulation()">Room Simulation</button>
-            <button onclick="applyConcertHall()">Concert Hall</button>
-            <button onclick="applyForestAmbience()">Forest Ambience</button>
-            <button onclick="applyCloseWhisper()">Close Whisper</button>
-            <button onclick="applyUnderwater()">Underwater</button>
             <button onclick="applyEffect()">Apply Effect</button>
         </div>
         <audio id="audioPlayer" controls></audio>
@@ -114,7 +106,7 @@
     </div>
 
     <footer>
-        <p>Developed with the Web Audio API &amp; Tone.js</p>
+        <p>Developed with the Web Audio API</p>
     </footer>
 
     <script>
@@ -122,6 +114,7 @@
         const audioElement = document.getElementById('audioPlayer');
         let isPlaying = false;
         let currentEffect = null;
+        let audioNodeChain = []; // To store all audio nodes for effects
 
         // Function to load and decode the uploaded audio file
         document.getElementById('fileInput').addEventListener('change', async function (event) {
@@ -173,101 +166,66 @@
             }
         }
 
-        // Apply effects (reusing previous effect functions like Reverb, 12D, etc.)
+        // Function to apply Reverb Effect
         function applyReverb() {
             currentEffect = 'reverb';
         }
 
-        function apply12D() {
-            currentEffect = '12d';
-        }
-
-        function applyOutsideEffect() {
-            currentEffect = 'outside';
-        }
-
+        // Function to apply Bass Boost Effect
         function applyBassBoost() {
             currentEffect = 'bassBoost';
         }
 
+        // Function to apply Echo Effect
         function applyEcho() {
             currentEffect = 'echo';
         }
 
+        // Function to apply 3D Audio Effect
         function apply3DAudio() {
             currentEffect = '3D';
         }
 
-        function applyRoomSimulation() {
-            currentEffect = 'roomSimulation';
-        }
-
-        function applyConcertHall() {
-            currentEffect = 'concertHall';
-        }
-
-        function applyForestAmbience() {
-            currentEffect = 'forestAmbience';
-        }
-
-        function applyCloseWhisper() {
-            currentEffect = 'whisper';
-        }
-
-        function applyUnderwater() {
-            currentEffect = 'underwater';
-        }
-
-        // Function to apply the selected effect in real-time during playback
+        // Function to apply selected effect in real-time during playback
         function applyEffect() {
             if (audioSourceNode) {
                 // Disconnect any existing effects
                 audioSourceNode.disconnect();
+                audioNodeChain.forEach(node => node.disconnect());
 
                 let effectNode;
 
                 // Apply the selected effect
                 switch (currentEffect) {
                     case 'reverb':
-                        effectNode = new Tone.Reverb({ decay: 3 }).toDestination();
-                        break;
-                    case '12d':
-                        effectNode = new Tone.Panner(0).toDestination();
-                        break;
-                    case 'outside':
-                        effectNode = new Tone.FeedbackDelay(0.4, 0.3).toDestination();
+                        effectNode = audioContext.createConvolver();
+                        effectNode.buffer = audioBuffer; // Use an impulse response for reverb
                         break;
                     case 'bassBoost':
-                        effectNode = new Tone.EQ3({ low: 10, mid: 0, high: -5 }).toDestination();
+                        effectNode = audioContext.createBiquadFilter();
+                        effectNode.type = 'lowshelf';
+                        effectNode.frequency.setValueAtTime(200, audioContext.currentTime);
+                        effectNode.gain.setValueAtTime(15, audioContext.currentTime);
                         break;
                     case 'echo':
-                        effectNode = new Tone.FeedbackDelay(0.6, 0.4).toDestination();
+                        effectNode = audioContext.createDelay();
+                        effectNode.delayTime.setValueAtTime(0.5, audioContext.currentTime); // Echo delay
                         break;
                     case '3D':
-                        effectNode = new Tone.Listener({ position: [0, 0, 0] });
+                        effectNode = audioContext.createPanner();
+                        effectNode.setPosition(0, 0, -1); // Position behind the listener
                         break;
-                    case 'roomSimulation':
-                        effectNode = new Tone.Reverb({ decay: 2.5, wet: 0.5 }).toDestination();
-                        break;
-                    case 'concertHall':
-                        effectNode = new Tone.Reverb({ decay: 2.5, wet: 0.7 }).toDestination();
-                        break;
-                    case 'forestAmbience':
-                        effectNode = new Tone.NoiseSynth().toDestination(); // Simulate forest sounds
-                        break;
-                    case 'whisper':
-                        effectNode = new Tone.Oscillator(440, "sine").toDestination(); // Simulate whisper
-                        break;
-                    case 'underwater':
-                        effectNode = new Tone.Distortion(0.5).toDestination();
+                    default:
+                        effectNode = audioContext.createGain();
                         break;
                 }
 
-                // Connect the audio source through the effect node
-                if (effectNode) {
-                    audioSourceNode.connect(effectNode);
-                    effectNode.connect(audioContext.destination);
-                }
+                // Connect the effect node in the chain
+                audioSourceNode.connect(effectNode);
+                effectNode.connect(audioContext.destination);
+
+                // Save the node to the chain for later
+                audioNodeChain.push(effectNode);
 
                 audioSourceNode.start();
                 isPlaying = true;
