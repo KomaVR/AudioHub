@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MP3 Immersive Audio Editor</title>
+    <title>Immersive Audio Editor</title>
     <script src="https://cdn.jsdelivr.net/npm/tone"></script>
     <style>
         body {
@@ -86,12 +86,12 @@
 </head>
 <body>
     <header>
-        <h1>MP3 Immersive Audio Editor</h1>
-        <p>Edit your MP3 files with immersive and creative effects</p>
+        <h1>Immersive Audio Editor</h1>
+        <p>Edit your audio files with immersive and creative effects</p>
     </header>
 
     <div class="container">
-        <input type="file" id="fileInput" accept="audio/mp3">
+        <input type="file" id="fileInput" accept="audio/*">
         <div class="controls">
             <button onclick="applyReverb()">Reverb</button>
             <button onclick="apply12D()">12D Audio</button>
@@ -106,7 +106,7 @@
             <button onclick="applyUnderwater()">Underwater</button>
         </div>
         <audio id="audioPlayer" controls></audio>
-        <button onclick="downloadAudio()">Download Edited MP3</button>
+        <button onclick="downloadAudio()">Download Edited Audio</button>
     </div>
 
     <footer>
@@ -114,9 +114,10 @@
     </footer>
 
     <script>
-        let audioContext, source, audioBuffer, player, mp3Source;
+        let audioContext, source, audioBuffer, player, audioSourceNode;
         const audioPlayer = document.getElementById('audioPlayer');
 
+        // Function to load and decode the uploaded audio file
         document.getElementById('fileInput').addEventListener('change', async function (event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -125,14 +126,21 @@
             reader.onload = async function (e) {
                 const audioData = e.target.result;
                 audioContext = new AudioContext();
-                mp3Source = new Tone.Player().toDestination();
+                
+                // Decode the audio data from the uploaded file
+                audioContext.decodeAudioData(audioData, (buffer) => {
+                    audioBuffer = buffer;
+                    audioSourceNode = audioContext.createBufferSource();
+                    audioSourceNode.buffer = audioBuffer;
 
-                // Use Tone.js to decode and load the MP3 file
-                mp3Source.load(audioData).then(() => {
-                    audioPlayer.src = mp3Source.url;
-                    mp3Source.autostart = true;
-                }).catch(error => {
-                    console.error('Error loading audio:', error);
+                    // Connect to destination (audio output)
+                    audioSourceNode.connect(audioContext.destination);
+                    
+                    // Update the player
+                    audioPlayer.src = URL.createObjectURL(file);
+                    audioSourceNode.start();
+                }, (error) => {
+                    console.error('Error decoding audio:', error);
                 });
             };
             reader.readAsArrayBuffer(file);
@@ -140,7 +148,7 @@
 
         function applyReverb() {
             const reverb = new Tone.Reverb({ decay: 3 }).toDestination();
-            mp3Source.connect(reverb);
+            audioSourceNode.connect(reverb);
         }
 
         function apply12D() {
@@ -148,60 +156,62 @@
             const loop = setInterval(() => {
                 panner.pan.value = Math.sin(Date.now() * 0.002);
             }, 50);
-            mp3Source.connect(panner);
+            audioSourceNode.connect(panner);
         }
 
         function applyOutsideEffect() {
             const delay = new Tone.FeedbackDelay(0.4, 0.3).toDestination();
-            mp3Source.connect(delay);
+            audioSourceNode.connect(delay);
         }
 
         function applyBassBoost() {
             const bassEQ = new Tone.EQ3({ low: 10, mid: 0, high: -5 }).toDestination();
-            mp3Source.connect(bassEQ);
+            audioSourceNode.connect(bassEQ);
         }
 
         function applyEcho() {
             const echo = new Tone.FeedbackDelay(0.6, 0.4).toDestination();
-            mp3Source.connect(echo);
+            audioSourceNode.connect(echo);
         }
 
         function apply3DAudio() {
             const spatial = new Tone.Listener({ position: [0, 0, 0] });
-            mp3Source.connect(spatial);
+            audioSourceNode.connect(spatial);
         }
 
         function applyRoomSimulation() {
             const roomEffect = new Tone.Freeverb({ roomSize: 0.9 }).toDestination();
-            mp3Source.connect(roomEffect);
+            audioSourceNode.connect(roomEffect);
         }
 
         function applyConcertHall() {
             const hall = new Tone.JCReverb({ roomSize: 0.8 }).toDestination();
-            mp3Source.connect(hall);
+            audioSourceNode.connect(hall);
         }
 
         function applyForestAmbience() {
             const ambience = new Tone.NoiseSynth({ type: 'brown' }).toDestination();
-            mp3Source.connect(ambience);
+            audioSourceNode.connect(ambience);
         }
 
         function applyCloseWhisper() {
             const whisperEffect = new Tone.PingPongDelay(0.05, 0.8).toDestination();
-            mp3Source.connect(whisperEffect);
+            audioSourceNode.connect(whisperEffect);
         }
 
         function applyUnderwater() {
             const underwaterEffect = new Tone.AutoFilter({ frequency: 200 }).toDestination();
-            mp3Source.connect(underwaterEffect);
+            audioSourceNode.connect(underwaterEffect);
         }
 
+        // Function to download the edited audio file as WAV
         async function downloadAudio() {
-            if (!mp3Source) {
+            if (!audioSourceNode) {
                 alert("No audio loaded to download!");
                 return;
             }
-            const arrayBuffer = await bufferToWav(mp3Source.buffer);
+
+            const arrayBuffer = await bufferToWav(audioBuffer);
             const blob = new Blob([arrayBuffer], { type: 'audio/wav' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
@@ -209,6 +219,7 @@
             link.click();
         }
 
+        // Function to convert the audio buffer to WAV format
         async function bufferToWav(buffer) {
             const numOfChan = buffer.numberOfChannels;
             const length = buffer.length * numOfChan * 2 + 44;
