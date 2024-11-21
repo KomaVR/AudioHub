@@ -118,11 +118,10 @@
     </footer>
 
     <script>
-        let audioContext, source, audioBuffer, audioPlayer, audioSourceNode;
+        let audioContext, audioBuffer, audioSourceNode, audioData = null;
         const audioElement = document.getElementById('audioPlayer');
         let isPlaying = false;
         let currentEffect = null;
-        let audioData = null;
 
         // Function to load and decode the uploaded audio file
         document.getElementById('fileInput').addEventListener('change', async function (event) {
@@ -141,7 +140,9 @@
                     audioSourceNode = audioContext.createBufferSource();
                     audioSourceNode.buffer = audioBuffer;
                     audioSourceNode.connect(audioContext.destination);
-                    audioPlayer.src = URL.createObjectURL(file);
+
+                    // Set the audio element to play the file
+                    audioElement.src = URL.createObjectURL(file);
                 }, (error) => {
                     console.error('Error decoding audio:', error);
                 });
@@ -264,25 +265,21 @@
                         break;
                 }
 
-                // Connect the effect to the source node and then to the destination
                 if (effectNode) {
+                    // Connect the audio source through the effect node
                     audioSourceNode.connect(effectNode);
-                    effectNode.connect(audioContext.destination);
+                    audioSourceNode.start();
                 }
-
-                // Start the playback
-                audioSourceNode.start();
-                isPlaying = true;
             }
         }
 
-        // Function to download the edited audio file
+        // Function to download the edited audio file (using a Blob)
         function downloadAudio() {
-            const blob = new Blob([audioData], { type: 'audio/wav' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = 'edited_audio.wav';
-            link.click();
+            const audioBlob = new Blob([audioData], { type: 'audio/wav' });
+            const downloadLink = document.createElement('a');
+            downloadLink.href = URL.createObjectURL(audioBlob);
+            downloadLink.download = 'edited_audio.wav';
+            downloadLink.click();
         }
     </script>
 </body>
