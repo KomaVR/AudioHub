@@ -146,6 +146,7 @@
             reader.readAsArrayBuffer(file);
         });
 
+        // Apply effects
         function applyReverb() {
             const reverb = new Tone.Reverb({ decay: 3 }).toDestination();
             audioSourceNode.connect(reverb);
@@ -204,48 +205,18 @@
             audioSourceNode.connect(underwaterEffect);
         }
 
-        // Function to download the edited audio file as WAV
+        // Function to download the edited audio file as MP3 or WAV
         async function downloadAudio() {
             if (!audioSourceNode) {
                 alert("No audio loaded to download!");
                 return;
             }
 
-            const arrayBuffer = await bufferToWav(audioBuffer);
-            const blob = new Blob([arrayBuffer], { type: 'audio/wav' });
+            const blob = new Blob([audioBuffer], { type: 'audio/wav' }); // or use MP3 depending on your desired format
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.download = 'edited_audio.wav';
+            link.download = 'edited_audio.wav'; // change extension to .mp3 if you prefer MP3
             link.click();
-        }
-
-        // Function to convert the audio buffer to WAV format
-        async function bufferToWav(buffer) {
-            const numOfChan = buffer.numberOfChannels;
-            const length = buffer.length * numOfChan * 2 + 44;
-            const bufferData = new Uint8Array(length);
-            const view = new DataView(bufferData.buffer);
-
-            const writeString = (view, offset, string) => {
-                for (let i = 0; i < string.length; i++) {
-                    view.setUint8(offset + i, string.charCodeAt(i));
-                }
-            };
-
-            writeString(view, 0, 'RIFF');
-            view.setUint32(4, 32 + buffer.length * 2, true);
-            writeString(view, 8, 'WAVE');
-            writeString(view, 12, 'fmt ');
-            view.setUint32(16, 16, true);
-            view.setUint16(20, 1, true);
-            view.setUint16(22, numOfChan, true);
-            view.setUint32(24, buffer.sampleRate, true);
-            view.setUint32(28, buffer.sampleRate * 4, true);
-            view.setUint16(32, numOfChan * 2, true);
-            writeString(view, 36, 'data');
-            view.setUint32(40, buffer.length * numOfChan * 2, true);
-
-            return bufferData.buffer;
         }
     </script>
 </body>
