@@ -104,7 +104,7 @@
             <button onclick="applyForestAmbience()">Forest Ambience</button>
             <button onclick="applyCloseWhisper()">Close Whisper</button>
             <button onclick="applyUnderwater()">Underwater</button>
-            <button onclick="applyEffects()">Apply Effects</button>
+            <button onclick="applyEffect()">Apply Effect</button>
         </div>
         <audio id="audioPlayer" controls></audio>
         <button onclick="downloadAudio()">Download Edited Audio</button>
@@ -123,6 +123,7 @@
         let isPlaying = false;
         let isPaused = false;
         let audioData = null;
+        let currentEffect = null;
 
         // Function to load and decode the uploaded audio file
         document.getElementById('fileInput').addEventListener('change', async function (event) {
@@ -177,88 +178,110 @@
 
         // Apply effects (reusing previous effect functions like Reverb, 12D, etc.)
         function applyReverb() {
-            const reverb = new Tone.Reverb({ decay: 3 }).toDestination();
-            audioSourceNode.connect(reverb);
+            currentEffect = 'reverb';
         }
 
         function apply12D() {
-            const panner = new Tone.Panner(0).toDestination();
-            const loop = setInterval(() => {
-                panner.pan.value = Math.sin(Date.now() * 0.002);
-            }, 50);
-            audioSourceNode.connect(panner);
+            currentEffect = '12d';
         }
 
         function applyOutsideEffect() {
-            const delay = new Tone.FeedbackDelay(0.4, 0.3).toDestination();
-            audioSourceNode.connect(delay);
+            currentEffect = 'outside';
         }
 
         function applyBassBoost() {
-            const bassEQ = new Tone.EQ3({ low: 10, mid: 0, high: -5 }).toDestination();
-            audioSourceNode.connect(bassEQ);
+            currentEffect = 'bassBoost';
         }
 
         function applyEcho() {
-            const echo = new Tone.FeedbackDelay(0.6, 0.4).toDestination();
-            audioSourceNode.connect(echo);
+            currentEffect = 'echo';
         }
 
         function apply3DAudio() {
-            const spatial = new Tone.Listener({ position: [0, 0, 0] });
-            audioSourceNode.connect(spatial);
+            currentEffect = '3D';
         }
 
         function applyRoomSimulation() {
-            const roomEffect = new Tone.Freeverb({ roomSize: 0.9 }).toDestination();
-            audioSourceNode.connect(roomEffect);
+            currentEffect = 'roomSimulation';
         }
 
         function applyConcertHall() {
-            const hall = new Tone.JCReverb({ roomSize: 0.8 }).toDestination();
-            audioSourceNode.connect(hall);
+            currentEffect = 'concertHall';
         }
 
         function applyForestAmbience() {
-            const ambience = new Tone.NoiseSynth({ type: 'brown' }).toDestination();
-            audioSourceNode.connect(ambience);
+            currentEffect = 'forestAmbience';
         }
 
         function applyCloseWhisper() {
-            const whisperEffect = new Tone.PingPongDelay(0.05, 0.8).toDestination();
-            audioSourceNode.connect(whisperEffect);
+            currentEffect = 'whisper';
         }
 
         function applyUnderwater() {
-            const underwaterEffect = new Tone.AutoFilter({ frequency: 200 }).toDestination();
-            audioSourceNode.connect(underwaterEffect);
+            currentEffect = 'underwater';
         }
 
-        // Apply selected effects to the audio
-        function applyEffects() {
-            // Reset the source node to avoid overlapping effects
+        // Function to apply the selected effect
+        function applyEffect() {
             if (audioSourceNode) {
-                audioSourceNode.disconnect();
+                switch (currentEffect) {
+                    case 'reverb':
+                        const reverb = new Tone.Reverb({ decay: 3 }).toDestination();
+                        audioSourceNode.connect(reverb);
+                        break;
+                    case '12d':
+                        const panner = new Tone.Panner(0).toDestination();
+                        const loop = setInterval(() => {
+                            panner.pan.value = Math.sin(Date.now() * 0.002);
+                        }, 50);
+                        audioSourceNode.connect(panner);
+                        break;
+                    case 'outside':
+                        const delay = new Tone.FeedbackDelay(0.4, 0.3).toDestination();
+                        audioSourceNode.connect(delay);
+                        break;
+                    case 'bassBoost':
+                        const bassEQ = new Tone.EQ3({ low: 10, mid: 0, high: -5 }).toDestination();
+                        audioSourceNode.connect(bassEQ);
+                        break;
+                    case 'echo':
+                        const echo = new Tone.FeedbackDelay(0.6, 0.4).toDestination();
+                        audioSourceNode.connect(echo);
+                        break;
+                    case '3D':
+                        const spatial = new Tone.Listener({ position: [0, 0, 0] });
+                        audioSourceNode.connect(spatial);
+                        break;
+                    case 'roomSimulation':
+                        const room = new Tone.Convolver().toDestination();
+                        audioSourceNode.connect(room);
+                        break;
+                    case 'concertHall':
+                        const hall = new Tone.Reverb({ decay: 5 }).toDestination();
+                        audioSourceNode.connect(hall);
+                        break;
+                    case 'forestAmbience':
+                        // Set up a more immersive ambience, depending on your needs.
+                        break;
+                    case 'whisper':
+                        const whisperEffect = new Tone.PitchShift(-10).toDestination();
+                        audioSourceNode.connect(whisperEffect);
+                        break;
+                    case 'underwater':
+                        const underwater = new Tone.Filter(800, "lowpass").toDestination();
+                        audioSourceNode.connect(underwater);
+                        break;
+                    default:
+                        alert("No effect selected.");
+                        break;
+                }
             }
-            
-            // Recreate the audio source and apply effects
-            audioSourceNode = audioContext.createBufferSource();
-            audioSourceNode.buffer = audioBuffer;
-            audioSourceNode.connect(audioContext.destination);
-            
-            // Example: Apply reverb effect as default
-            applyReverb();
         }
 
-        // Download the edited audio
-        function downloadAudio() {
-            if (!audioBuffer) {
-                alert("Please upload an audio file first!");
-                return;
-            }
-
+        // Function to download the audio after applying effects
+        async function downloadAudio() {
             const buffer = audioBuffer;
-            const wavData = encodeWav(buffer); // Encoding audio to WAV
+            const wavData = await encodeWav(buffer);
             const blob = new Blob([wavData], { type: 'audio/wav' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
