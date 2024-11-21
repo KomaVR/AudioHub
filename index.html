@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MP3 Immersive Audio Editor</title>
+    <script src="https://cdn.jsdelivr.net/npm/tone"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #000428, #004e92);
+            color: white;
+            text-align: center;
+        }
+
+        header {
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            box-shadow: 0px 5px 15px rgba(0, 0, 0, 0.5);
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 2.5rem;
+        }
+
+        p {
+            margin: 10px 0 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 30px auto;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0px 5px 25px rgba(0, 0, 0, 0.8);
+        }
+
+        input[type="file"] {
+            margin: 20px 0;
+            padding: 10px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            color: #333;
+        }
+
+        .controls {
+            margin: 20px 0;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+        }
+
+        button {
+            padding: 15px;
+            font-size: 1rem;
+            background: #004e92;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.3s ease;
+            box-shadow: 0px 5px 15px rgba(0, 0, 0, 0.5);
+        }
+
+        button:hover {
+            background: #000428;
+        }
+
+        audio {
+            width: 100%;
+            margin: 20px 0;
+        }
+
+        footer {
+            margin: 20px 0;
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.8);
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>MP3 Immersive Audio Editor</h1>
+        <p>Edit your MP3 files with immersive and creative effects</p>
+    </header>
+
+    <div class="container">
+        <input type="file" id="fileInput" accept="audio/*">
+        <div class="controls">
+            <button onclick="applyReverb()">Reverb</button>
+            <button onclick="apply12D()">12D Audio</button>
+            <button onclick="applyOutsideEffect()">Outside Headphones</button>
+            <button onclick="applyBassBoost()">Bass Boost</button>
+            <button onclick="applyEcho()">Echo</button>
+            <button onclick="apply3DAudio()">3D Audio</button>
+            <button onclick="applyRoomSimulation()">Room Simulation</button>
+            <button onclick="applyConcertHall()">Concert Hall</button>
+            <button onclick="applyForestAmbience()">Forest Ambience</button>
+            <button onclick="applyCloseWhisper()">Close Whisper</button>
+            <button onclick="applyUnderwater()">Underwater</button>
+        </div>
+        <audio id="audioPlayer" controls></audio>
+        <button onclick="downloadAudio()">Download Edited MP3</button>
+    </div>
+
+    <footer>
+        <p>Developed with the Web Audio API &amp; Tone.js</p>
+    </footer>
+
+    <script>
+        let audioContext, source, audioBuffer, player;
+        const audioPlayer = document.getElementById('audioPlayer');
+
+        document.getElementById('fileInput').addEventListener('change', async function (event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function (e) {
+                const audioData = e.target.result;
+                audioContext = new AudioContext();
+                audioBuffer = await audioContext.decodeAudioData(audioData);
+                playAudio(audioBuffer);
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        async function playAudio(buffer) {
+            const arrayBuffer = await bufferToWav(buffer);
+            const blob = new Blob([arrayBuffer], { type: 'audio/wav' });
+            const url = URL.createObjectURL(blob);
+            audioPlayer.src = url;
+        }
+
+        function applyReverb() {
+            const reverb = new Tone.Reverb({ decay: 3 }).toDestination();
+            connectEffect(reverb);
+        }
+
+        function apply12D() {
+            const panner = new Tone.Panner(0).toDestination();
+            const loop = setInterval(() => {
+                panner.pan.value = Math.sin(Date.now() * 0.002);
+            }, 50);
+            connectEffect(panner);
+        }
+
+        function applyOutsideEffect() {
+            const delay = new Tone.FeedbackDelay(0.4, 0.3).toDestination();
+            connectEffect(delay);
+        }
+
+        function applyBassBoost() {
+            const bassEQ = new Tone.EQ3({ low: 10, mid: 0, high: -5 }).toDestination();
+            connectEffect(bassEQ);
+        }
+
+        function applyEcho() {
+            const echo = new Tone.FeedbackDelay(0.6, 0.4).toDestination();
+            connectEffect(echo);
+        }
+
+        function apply3DAudio() {
+            const spatial = new Tone.Listener({ position: [0, 0, 0] });
+            connectEffect(spatial);
+        }
+
+        function applyRoomSimulation() {
+            const roomEffect = new Tone.Freeverb({ roomSize: 0.9 }).toDestination();
+            connectEffect(roomEffect);
+        }
+
+        function applyConcertHall() {
+            const hall = new Tone.JCReverb({ roomSize: 0.8 }).toDestination();
+            connectEffect(hall);
+        }
+
+        function applyForestAmbience() {
+            const ambience = new Tone.NoiseSynth({ type: 'brown' }).toDestination();
+            connectEffect(ambience);
+        }
+
+        function applyCloseWhisper() {
+            const whisperEffect = new Tone.PingPongDelay(0.05, 0.8).toDestination();
+            connectEffect(whisperEffect);
+        }
+
+        function applyUnderwater() {
+            const underwaterEffect = new Tone.AutoFilter({ frequency: 200 }).toDestination();
+            connectEffect(underwaterEffect);
+        }
+
+        function connectEffect(effect) {
+            if (audioContext && audioBuffer) {
+                const source = audioContext.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(effect).connect(audioContext.destination);
+                source.start();
+            }
+        }
+
+        async function downloadAudio() {
+            if (!audioBuffer) {
+                alert("No audio loaded to download!");
+                return;
+            }
+            const arrayBuffer = await bufferToWav(audioBuffer);
+            const blob = new Blob([arrayBuffer], { type: 'audio/wav' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'edited_audio.wav';
+            link.click();
+        }
+
+        async function bufferToWav(buffer) {
+            const numOfChan = buffer.numberOfChannels;
+            const length = buffer.length * numOfChan * 2 + 44;
+            const bufferData = new Uint8Array(length);
+            const view = new DataView(bufferData.buffer);
+
+            const writeString = (view, offset, string) => {
+                for (let i = 0; i < string.length; i++) {
+                    view.setUint8(offset + i, string.charCodeAt(i));
+                }
+            };
+
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, 32 + buffer.length * 2, true);
+            writeString(view, 8, 'WAVE');
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, numOfChan, true);
+            view.setUint32(24, buffer.sampleRate, true);
+            view.setUint32(28, buffer.sampleRate * 4, true);
+            view.setUint16(32, numOfChan * 2, true);
+            writeString(view, 36, 'data');
+            view.setUint32(40, buffer.length * numOfChan * 2, true);
+
+            return bufferData.buffer;
+        }
+    </script>
+</body>
+</html>
