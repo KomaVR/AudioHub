@@ -120,15 +120,18 @@
         const fileInput = document.getElementById('fileInput');
         const audioPlayer = document.getElementById('audioPlayer');
 
+        // Listen for file selection
         fileInput.addEventListener('change', async (event) => {
             const file = event.target.files[0];
-            if (!file) {
+
+            // Ensure the file is an MP3
+            if (file && file.type === 'audio/mp3') {
+                const arrayBuffer = await file.arrayBuffer();
+                audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                playAudio(audioBuffer);
+            } else {
                 alert('Please upload a valid MP3 file.');
-                return;
             }
-            const arrayBuffer = await file.arrayBuffer();
-            audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-            playAudio(audioBuffer);
         });
 
         function playAudio(buffer) {
