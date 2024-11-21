@@ -118,12 +118,11 @@
     </footer>
 
     <script>
-        let audioContext, source, audioBuffer, player, audioSourceNode;
-        const audioPlayer = document.getElementById('audioPlayer');
+        let audioContext, source, audioBuffer, audioPlayer, audioSourceNode;
+        const audioElement = document.getElementById('audioPlayer');
         let isPlaying = false;
-        let isPaused = false;
-        let audioData = null;
         let currentEffect = null;
+        let audioData = null;
 
         // Function to load and decode the uploaded audio file
         document.getElementById('fileInput').addEventListener('change', async function (event) {
@@ -133,15 +132,14 @@
             const reader = new FileReader();
             reader.onload = async function (e) {
                 audioData = e.target.result;
-                audioContext = new AudioContext();
-                
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
                 // Decode the audio data from the uploaded file
                 audioContext.decodeAudioData(audioData, (buffer) => {
                     audioBuffer = buffer;
+                    // Create a source node for the audio
                     audioSourceNode = audioContext.createBufferSource();
                     audioSourceNode.buffer = audioBuffer;
-                    
-                    // Connect to destination (audio output)
                     audioSourceNode.connect(audioContext.destination);
                     audioPlayer.src = URL.createObjectURL(file);
                 }, (error) => {
@@ -162,17 +160,15 @@
 
         // Function to pause the audio
         function pauseAudio() {
-            if (audioContext && isPlaying && !isPaused) {
+            if (audioContext && isPlaying) {
                 audioContext.suspend();
-                isPaused = true;
             }
         }
 
         // Function to resume the audio
         function resumeAudio() {
-            if (audioContext && isPaused) {
+            if (audioContext) {
                 audioContext.resume();
-                isPaused = false;
             }
         }
 
@@ -221,57 +217,61 @@
             currentEffect = 'underwater';
         }
 
-        // Function to apply the selected effect
+        // Function to apply the selected effect in real-time during playback
         function applyEffect() {
             if (audioSourceNode) {
+                // Disconnect any existing effects
+                audioSourceNode.disconnect();
+
+                let effectNode;
+
+                // Apply the selected effect
                 switch (currentEffect) {
                     case 'reverb':
-                        const reverb = new Tone.Reverb({ decay: 3 }).toDestination();
-                        audioSourceNode.connect(reverb);
+                        effectNode = new Tone.Reverb({ decay: 3 }).toDestination();
                         break;
                     case '12d':
-                        const panner = new Tone.Panner(0).toDestination();
-                        const loop = setInterval(() => {
-                            panner.pan.value = Math.sin(Date.now() * 0.002);
-                        }, 50);
-                        audioSourceNode.connect(panner);
+                        effectNode = new Tone.Panner(0).toDestination();
                         break;
                     case 'outside':
-                        const delay = new Tone.FeedbackDelay(0.4, 0.3).toDestination();
-                        audioSourceNode.connect(delay);
+                        effectNode = new Tone.FeedbackDelay(0.4, 0.3).toDestination();
                         break;
                     case 'bassBoost':
-                        const bassEQ = new Tone.EQ3({ low: 10, mid: 0, high: -5 }).toDestination();
-                        audioSourceNode.connect(bassEQ);
+                        effectNode = new Tone.EQ3({ low: 10, mid: 0, high: -5 }).toDestination();
                         break;
                     case 'echo':
-                        const echo = new Tone.FeedbackDelay(0.6, 0.4).toDestination();
-                        audioSourceNode.connect(echo);
+                        effectNode = new Tone.FeedbackDelay(0.6, 0.4).toDestination();
                         break;
                     case '3D':
-                        const spatial = new Tone.Listener({ position: [0, 0, 0] });
-                        audioSourceNode.connect(spatial);
+                        effectNode = new Tone.Listener({ position: [0, 0, 0] });
                         break;
                     case 'roomSimulation':
-                        // Custom code for room simulation (filtering, reverberation)
+                        effectNode = new Tone.Reverb({ decay: 2.5, wet: 0.5 }).toDestination();
                         break;
                     case 'concertHall':
-                        const hallReverb = new Tone.Reverb({ decay: 2.5, wet: 0.5 }).toDestination();
-                        audioSourceNode.connect(hallReverb);
+                        effectNode = new Tone.Reverb({ decay: 2.5, wet: 0.7 }).toDestination();
                         break;
                     case 'forestAmbience':
-                        // Apply ambient sound effects like birds, leaves, etc.
+                        effectNode = new Tone.NoiseSynth().toDestination(); // Simulate forest sounds
                         break;
                     case 'whisper':
-                        // Simulate a soft whisper sound effect
+                        effectNode = new Tone.Oscillator(440, "sine").toDestination(); // Simulate whisper
                         break;
                     case 'underwater':
-                        const lowpass = new Tone.Filter(400, "lowpass").toDestination();
-                        audioSourceNode.connect(lowpass);
+                        effectNode = new Tone.Filter(400, "lowpass").toDestination();
                         break;
                     default:
                         break;
                 }
+
+                // Connect the effect to the source node and then to the destination
+                if (effectNode) {
+                    audioSourceNode.connect(effectNode);
+                    effectNode.connect(audioContext.destination);
+                }
+
+                // Start the playback
+                audioSourceNode.start();
                 isPlaying = true;
             }
         }
